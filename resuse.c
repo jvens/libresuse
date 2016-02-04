@@ -40,19 +40,44 @@
 
 static unsigned long ptok (unsigned long pages);
 
+/**
+ * Start resource usage collection information.
+ * @details    This will save the start time and scope information
+ *             for the resource usage collector.  This function should
+ *             be called at the top of the scope for which resource
+ *             information is being collected.
+ * @param      resp
+ *                  The `struct resuse` structure to save the resource
+ *                  information to.
+ * @param      scope
+ *                  The scope to collect resources for.
+ */
 void resuse_start(struct resuse * resp, enum resuse_scope scope)
 {
 	gettimeofday (&resp->start, (struct timezone *) 0);
 	resp->scope = scope;
 }
 
+/**
+ * Stop collecting and save the current resource usage information.
+ * @details    This function will save the current time and calculate
+ *             the elapsed time since resuse_start() was called.  It
+ *             will also query the kernel for information about the
+ *             resources used by the process or thread depending on
+ *             scope.
+ * @param      resp
+ *                  The `struct resuse` structure that was given to
+ *                  resuse_start().
+ */
 void resuse_end(struct resuse * resp)
 {
 	int status;
 	gettimeofday (&resp->elapsed, (struct timezone *) 0);
 
+	// get resource usage from the kernel
 	getrusage(resp->scope, &resp->ru);
 
+	// calculate elapsed time
 	resp->elapsed.tv_sec -= resp->start.tv_sec;
 	if (resp->elapsed.tv_usec < resp->start.tv_usec)
 	{
@@ -63,6 +88,21 @@ void resuse_end(struct resuse * resp)
 	resp->elapsed.tv_usec -= resp->start.tv_usec;
 }
 
+/**
+ * Print the resource usage as a formated string to the file stream.
+ * @details    This function mimics fprintf().  It uses the format string
+ *             to format the collected resource information.  The format
+ *             string uses `%' flags similar to printf() functions.  To
+ *             see all supported flags look at the projectes README.md
+ * @param      fp
+ *                  The file stream to print the output to
+ * @param      fmt
+ *                  The format string to be used.  `%' flags will be
+ *                  replaced with approriate information from @param resp.
+ * @param      resp
+ *                  The resuse structure that was passed to resuse_start()
+ *                  and resuse_end().
+ */
 int resuse_fprint(FILE * fp, const char * fmt, const struct resuse * resp)
 {
 	unsigned long r;
@@ -216,6 +256,12 @@ int resuse_fprint(FILE * fp, const char * fmt, const struct resuse * resp)
 	return 0;
 }
 
+/**
+ * Converte number of pages to size in KB
+ * @param   pages
+ *               The number of pages
+ * @return  The size in KB of the given number of pages.
+ */
 static unsigned long ptok (unsigned long pages)
 {
 	static unsigned long ps = 0;
